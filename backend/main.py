@@ -1,5 +1,7 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 import ssl
 from sqlalchemy import create_engine, Column, Integer, String, Boolean
 from sqlalchemy.ext.declarative import declarative_base
@@ -96,6 +98,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mount static files
+static_dir = Path(__file__).parent / "static"
+static_dir.mkdir(exist_ok=True)
+app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
 # Database dependency
 def get_db():
     db = SessionLocal()
@@ -128,6 +135,10 @@ def send_telegram_message(token: str, chat_id: str, message: str):
         return False
 
 # Routes
+@app.get("/")
+def root():
+    return FileResponse(str(Path(__file__).parent / "static" / "index.html"))
+
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
