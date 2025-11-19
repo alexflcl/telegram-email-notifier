@@ -2,7 +2,9 @@ version: '3.8'
 
 services:
   backend:
-    image: alexflcl/telegram-email-notifier:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: telegram-notifier-backend
     ports:
       - "8000:8000"
