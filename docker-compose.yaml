@@ -9,6 +9,6 @@ services:
     volumes:
       - ./data:/app/data
     environment:
-      - DATABASE_URL=sqlite:////app/data/telegram_notifier.db
+      - DATABASE_URL=sqlite:///app/data/telegram_notifier.db
       - PYTHONUNBUFFERED=1
     restart: unless-stopped
