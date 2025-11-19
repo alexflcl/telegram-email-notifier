@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telegram Email Notifier</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+        #app { max-width: 1200px; margin: 0 auto; }
+        .container { background: white; border-radius: 12px; padding: 30px; margin-bottom: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); }
+        h1 { color: #333; margin-bottom: 10px; font-size: 28px; }
+        h2 { color: #667eea; margin: 20px 0 15px 0; font-size: 20px; border-bottom: 2px solid #667eea; padding-bottom: 10px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; color: #555; font-weight: 500; }
+        input, select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+        input:focus, select:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102,126,234,0.1); }
+        .btn { padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; margin-right: 10px; }
+        .btn:hover { background: #5568d3; }
+        .btn-danger { background: #ef4444; }
+        .btn-danger:hover { background: #dc2626; }
+        .btn-success { background: #10b981; }
+        .btn-success:hover { background: #059669; }
+        .item { background: #f9fafb; padding: 15px; border-radius: 6px; margin-bottom: 10px; border-left: 4px solid #667eea; }
+        .item-title { font-weight: 600; color: #333; }
+        .item-info { color: #666; font-size: 13px; margin-top: 5px; }
+        .status { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; margin-top: 5px; }
+        .status.active { background: #d1fae5; color: #065f46; }
+        .status.inactive { background: #fee2e2; color: #991b1b; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
+        .modal.show { display: flex; }
+        .modal-content { background: white; padding: 30px; border-radius: 12px; max-width: 400px; width: 100%; }
+        .error { color: #dc2626; padding: 10px; background: #fee2e2; border-radius: 6px; margin-bottom: 15px; }
+        .success { color: #059669; padding: 10px; background: #d1fae5; border-radius: 6px; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="container">
+            <h1>🤖 Telegram Email Notifier</h1>
+            <p style="color: #999; margin-bottom: 20px;">Monitorea carpetas de email y envía notificaciones a Telegram</p>
+        </div>
+
+        <!-- Bots -->
+        <div class="container">
+            <h2>🤖 Bots de Telegram</h2>
+            <div v-if="error" class="error">{{ error }}</div>
+            <div v-if="success" class="success">{{ success }}</div>
+            
+            <div class="form-group">
+                <label>Nombre del Bot</label>
+                <input v-model="newBot.name" placeholder="Mi Bot">
+            </div>
+            <div class="form-group">
+                <label>Token</label>
+                <input v-model="newBot.token" type="password" placeholder="Token de Telegram">
+            </div>
+            <div class="form-group">
+                <label>Chat ID</label>
+                <input v-model="newBot.chat_id" placeholder="ID del chat">
+            </div>
+            <button @click="addBot" class="btn">Agregar Bot</button>
+
+            <div v-for="bot in bots" :key="bot.id" class="item">
+                <div class="item-title">{{ bot.name }}</div>
+                <div class="item-info">Token: {{ bot.token.substring(0, 10) }}...</div>
+                <div class="item-info">Chat ID: {{ bot.chat_id }}</div>
+                <div class="status" :class="{ active: bot.active, inactive: !bot.active }">
+                    {{ bot.active ? 'Activo' : 'Inactivo' }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Emails -->
+        <div class="container">
+            <h2>📧 Cuentas de Email</h2>
+            <div class="form-group">
+                <label>Email</label>
+                <input v-model="newEmail.email" type="email" placeholder="tu@email.com">
+            </div>
+            <div class="form-group">
+                <label>Contraseña</label>
+                <input v-model="newEmail.password" type="password" placeholder="Contraseña">
+            </div>
+            <div class="form-group">
+                <label>Servidor IMAP</label>
+                <input v-model="newEmail.imap_server" placeholder="mail.example.com">
+            </div>
+            <div class="form-group">
+                <label>Puerto IMAP</label>
+                <input v-model.number="newEmail.imap_port" type="number" placeholder="993">
+            </div>
+            <button @click="addEmail" class="btn btn-success">Agregar Email</button>
+
+            <div v-for="email in emails" :key="email.id" class="item">
+                <div class="item-title">{{ email.email }}</div>
+                <div class="item-info">{{ email.imap_server }}:{{ email.imap_port }}</div>
+            </div>
+        </div>
+
+        <!-- Monitors -->
+        <div class="container">
+            <h2>👁️ Monitoreos</h2>
+            <div class="form-group">
+                <label>Bot</label>
+                <select v-model.number="newMonitor.bot_id">
+                    <option value="">Selecciona un bot</option>
+                    <option v-for="bot in bots" :key="bot.id" :value="bot.id">{{ bot.name }}</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <select v-model.number="newMonitor.email_id">
+                    <option value="">Selecciona un email</option>
+                    <option v-for="email in emails" :key="email.id" :value="email.id">{{ email.email }}</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Carpeta</label>
+                <input v-model="newMonitor.folder" placeholder="INBOX">
+            </div>
+            <div class="form-group">
+                <label>Intervalo (segundos)</label>
+                <input v-model.number="newMonitor.check_interval" type="number" placeholder="300">
+            </div>
+            <button @click="addMonitor" class="btn">Crear Monitoreo</button>
+
+            <div v-for="monitor in monitors" :key="monitor.id" class="item">
+                <div class="item-title">{{ getMonitorName(monitor) }}</div>
+                <div class="item-info">Carpeta: {{ monitor.folder }} | Intervalo: {{ monitor.check_interval }}s</div>
+                <div class="status" :class="{ active: monitor.active, inactive: !monitor.active }">
+                    {{ monitor.active ? 'Activo' : 'Inactivo' }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    bots: [],
+                    emails: [],
+                    monitors: [],
+                    newBot: { name: '', token: '', chat_id: '' },
+                    newEmail: { email: '', password: '', imap_server: '', imap_port: 993 },
+                    newMonitor: { bot_id: '', email_id: '', folder: '', check_interval: 300 },
+                    error: '',
+                    success: ''
+                };
+            },
+            mounted() {
+                this.loadBots();
+                this.loadEmails();
+                this.loadMonitors();
+            },
+            methods: {
+                async loadBots() {
+                    try {
+                        const res = await fetch('/bots');
+                        this.bots = await res.json();
+                    } catch (e) {
+                        console.error(e);
+                    }
+                },
+                async loadEmails() {
+                    try {
+                        const res = await fetch('/emails');
+                        this.emails = await res.json();
+                    } catch (e) {
+                        console.error(e);
+                    }
+                },
+                async loadMonitors() {
+                    try {
+                        const res = await fetch('/monitors');
+                        this.monitors = await res.json();
+                    } catch (e) {
+                        console.error(e);
+                    }
+                },
+                async addBot() {
+                    try {
+                        const res = await fetch('/bots', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(this.newBot)
+                        });
+                        if (res.ok) {
+                            this.success = 'Bot agregado exitosamente';
+                            this.newBot = { name: '', token: '', chat_id: '' };
+                            this.loadBots();
+                            setTimeout(() => this.success = '', 3000);
+                        }
+                    } catch (e) {
+                        this.error = 'Error al agregar bot';
+                    }
+                },
+                async addEmail() {
+                    try {
+                        const res = await fetch('/emails', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(this.newEmail)
+                        });
+                        if (res.ok) {
+                            this.success = 'Email agregado exitosamente';
+                            this.newEmail = { email: '', password: '', imap_server: '', imap_port: 993 };
+                            this.loadEmails();
+                            setTimeout(() => this.success = '', 3000);
+                        } else {
+                            this.error = 'Error al conectar con el email';
+                        }
+                    } catch (e) {
+                        this.error = 'Error al agregar email';
+                    }
+                },
+                async addMonitor() {
+                    try {
+                        const res = await fetch('/monitors', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(this.newMonitor)
+                        });
+                        if (res.ok) {
+                            this.success = 'Monitoreo creado exitosamente';
+                            this.newMonitor = { bot_id: '', email_id: '', folder: '', check_interval: 300 };
+                            this.loadMonitors();
+                            setTimeout(() => this.success = '', 3000);
+                        }
+                    } catch (e) {
+                        this.error = 'Error al crear monitoreo';
+                    }
+                },
+                getMonitorName(monitor) {
+                    const bot = this.bots.find(b => b.id === monitor.bot_id);
+                    const email = this.emails.find(e => e.id === monitor.email_id);
+                    return `${bot?.name || 'Bot'} → ${email?.email || 'Email'}`;
+                }
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
