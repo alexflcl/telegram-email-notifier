@@ -1,0 +1,28 @@
+version: '3'
+services:
+  email-notifier:
+    image: python:3.11-slim
+
+    volumes:
+      - ./script:/app
+    working_dir: /app
+    command: >
+      bash -c "
+      apt-get update &&
+      apt-get install -y ca-certificates &&
+      python -m venv /app/venv &&
+      . /app/venv/bin/activate &&
+      pip install --upgrade pip &&
+      pip install imapclient requests &&
+      python /app/email_notifier.py
+      "
+
+    environment:
+      - EMAIL=info@check-point.es
+      - PASSWORD=BKQzb#Wgbuv@5yzdfbeRC5ygK
+      - IMAP_SERVER=ex4.mail.ovh.net
+      - IMAP_PORT=993
+      - BOT_TOKEN=7193780496:AAG666qlNC0ubRMpRC5sgWJREwWMd3PBEFQ
+      - CHAT_ID=-1001353349451
+      - SPECIFIC_FOLDER=ONLINE SALES
+    restart: always
