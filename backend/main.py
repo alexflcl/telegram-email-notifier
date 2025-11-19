@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import ssl
 from sqlalchemy import create_engine, Column, Integer, String, Boolean
@@ -53,17 +53,37 @@ class BotSchema(BaseModel):
     token: str
     chat_id: str
 
+class BotResponse(BotSchema):
+    id: int
+    active: bool
+
+    class Config:
+        from_attributes = True
+
 class EmailSchema(BaseModel):
     email: EmailStr
     password: str
     imap_server: str
     imap_port: int = 993
 
+class EmailResponse(EmailSchema):
+    id: int
+
+    class Config:
+        from_attributes = True
+
 class MonitorSchema(BaseModel):
     bot_id: int
     email_id: int
     folder: str
     check_interval: int = 300
+
+class MonitorResponse(MonitorSchema):
+    id: int
+    active: bool
+
+    class Config:
+        from_attributes = True
 
 # FastAPI app
 app = FastAPI(title="Telegram Email Notifier")
@@ -112,39 +132,42 @@ def send_telegram_message(token: str, chat_id: str, message: str):
 def health_check():
     return {"status": "ok"}
 
-@app.post("/bots")
-def create_bot(bot: BotSchema, db: Session = next(get_db())):
+@app.post("/bots", response_model=BotResponse)
+def create_bot(bot: BotSchema, db: Session = Depends(get_db)):
     db_bot = TelegramBot(**bot.dict())
     db.add(db_bot)
     db.commit()
+    db.refresh(db_bot)
     return db_bot
 
-@app.get("/bots")
-def list_bots(db: Session = next(get_db())):
+@app.get("/bots", response_model=list[BotResponse])
+def list_bots(db: Session = Depends(get_db)):
     return db.query(TelegramBot).all()
 
-@app.post("/emails")
-def create_email(email: EmailSchema, db: Session = next(get_db())):
+@app.post("/emails", response_model=EmailResponse)
+def create_email(email: EmailSchema, db: Session = Depends(get_db)):
     if not test_email_connection(email.email, email.password, email.imap_server, email.imap_port):
         raise HTTPException(status_code=400, detail="Email connection failed")
     db_email = EmailAccount(**email.dict())
     db.add(db_email)
     db.commit()
+    db.refresh(db_email)
     return db_email
 
-@app.get("/emails")
-def list_emails(db: Session = next(get_db())):
+@app.get("/emails", response_model=list[EmailResponse])
+def list_emails(db: Session = Depends(get_db)):
     return db.query(EmailAccount).all()
 
-@app.post("/monitors")
-def create_monitor(monitor: MonitorSchema, db: Session = next(get_db())):
+@app.post("/monitors", response_model=MonitorResponse)
+def create_monitor(monitor: MonitorSchema, db: Session = Depends(get_db)):
     db_monitor = EmailMonitor(**monitor.dict())
     db.add(db_monitor)
     db.commit()
+    db.refresh(db_monitor)
     return db_monitor
 
-@app.get("/monitors")
-def list_monitors(db: Session = next(get_db())):
+@app.get("/monitors", response_model=list[MonitorResponse])
+def list_monitors(db: Session = Depends(get_db)):
     return db.query(EmailMonitor).all()
 
 if __name__ == "__main__":
