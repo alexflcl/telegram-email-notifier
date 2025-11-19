@@ -2,10 +2,8 @@ version: '3.8'
 
 services:
   backend:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: telegram-notifier-backend
+    image: alexflcl/telegram-email-notifier:latest
+    restart: unless-stopped
     ports:
       - "8000:8000"
     volumes:
@@ -13,4 +11,3 @@ services:
     environment:
       - DATABASE_URL=sqlite:///app/data/telegram_notifier.db
       - PYTHONUNBUFFERED=1
-    restart: unless-stopped
