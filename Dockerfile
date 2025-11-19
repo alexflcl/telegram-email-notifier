@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/
 COPY backend/ .
 
 # Instalar dependencias Python
-RUN pip install --no-cache-dir fastapi uvicorn sqlalchemy pydantic imapclient requests
+RUN pip install --no-cache-dir fastapi uvicorn sqlalchemy pydantic[email] imapclient requests
 
 # Crear directorio para base de datos
 RUN mkdir -p /app/data
